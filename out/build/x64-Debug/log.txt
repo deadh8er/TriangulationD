@@ -1,0 +1,3 @@
+The log file is defined
+Mesh loaded into memory
+Mesh is written to the output file
