@@ -10,4 +10,7 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include <list>
+#include <algorithm>
+#include <numeric>
 // TODO: установите здесь ссылки на дополнительные заголовки, требующиеся для программы.

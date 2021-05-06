@@ -1,0 +1,5 @@
+if(EXISTS "C:/Users/Light/source/repos/TriangulationD/out/build/x64-Debug/testgtest[1]_tests.cmake")
+  include("C:/Users/Light/source/repos/TriangulationD/out/build/x64-Debug/testgtest[1]_tests.cmake")
+else()
+  add_test(testgtest_NOT_BUILT testgtest_NOT_BUILT)
+endif()
