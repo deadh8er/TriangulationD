@@ -182,6 +182,23 @@ Node FindCenterCircle(Triangle tri, vector<Node>& AllDataNodes) {
     return Center;
 }
 
+// Проверяем у треугольника номер k соседние треугольники на наличие нового узла m в их окружностях, возращает номера этих треугольников
+vector<int> PointInCircle(int m, int k, vector<int> triDelete, vector<Node>& AllDataNodes, vector<Triangle>& AllDataTriangles) {
+    vector<int> triDelete2;
+    for (int i = 0; i < 3; i++) {
+        bool flag = false;
+        for (int j = 0; j < triDelete.size(); j++) {
+            if (AllDataTriangles[k].triangles[i] == triDelete[j]) {
+                flag = true;
+            }
+        }
+        if (AllDataTriangles[k].triangles[i] == -1 || flag) continue;
+        Node Center = FindCenterCircle(AllDataTriangles[AllDataTriangles[k].triangles[i]], AllDataNodes);
+        if (sqrt(pow(AllDataNodes[m].x - Center.x, 2) + pow(AllDataNodes[m].y - Center.y, 2)) < sqrt(pow(AllDataNodes[AllDataTriangles[AllDataTriangles[k].triangles[i]].nodes[0]].x - Center.x, 2) + pow(AllDataNodes[AllDataTriangles[AllDataTriangles[k].triangles[i]].nodes[0]].y - Center.y, 2))) triDelete2.push_back(AllDataTriangles[k].triangles[i]);
+    }
+    return triDelete2;
+}
+
 // Построение новых треугольников. Критерий: новый узел в описанной окружности. m - номер добавляемой точки, k - номер треугольника, которому принадлежит точка.
 void NewTriangles(int m, int k, vector<Node>& AllDataNodes, vector<Triangle>& AllDataTriangles) {
     /*
@@ -193,15 +210,16 @@ void NewTriangles(int m, int k, vector<Node>& AllDataNodes, vector<Triangle>& Al
     */
     vector<int> triDelete = { k }; // Список треугольников, у которых внутрь описанных окружностей попадает новый узел
 
-    for (int i = 0; i < 3; i++) {
-        if (AllDataTriangles[k].triangles[i] == -1) continue;
-        Node Center = FindCenterCircle(AllDataTriangles[AllDataTriangles[k].triangles[i]], AllDataNodes);
-        if (sqrt(pow(AllDataNodes[m].x - Center.x, 2) + pow(AllDataNodes[m].y - Center.y, 2)) < sqrt(pow(AllDataNodes[AllDataTriangles[AllDataTriangles[k].triangles[i]].nodes[0]].x - Center.x, 2) + pow(AllDataNodes[AllDataTriangles[AllDataTriangles[k].triangles[i]].nodes[0]].y - Center.y, 2))) triDelete.push_back(AllDataTriangles[k].triangles[i]);
-    }
-
-    // По triDelete строится многоугольник Вороного (ребро считается лишним, если оно общее между двумя треугольниками)
+    // Для каждого треугольника из triDelete проверяем, попадает ли новый узел в описанную окружность.
+    int i = 0;
+    do {
+        vector<int> triDelete2 = PointInCircle(m, triDelete[i], triDelete, AllDataNodes, AllDataTriangles);
+        i++;
+        triDelete.insert(triDelete.end(), triDelete2.begin(), triDelete2.end());
+    } while (i < triDelete.size());
 
     if (triDelete.size() == 1) {
+        // Тривиальный случай
         Triangle triangLine;
         triangLine.nodes[0] = AllDataTriangles[k].nodes[0];
         triangLine.nodes[1] = AllDataTriangles[k].nodes[1];
@@ -220,107 +238,138 @@ void NewTriangles(int m, int k, vector<Node>& AllDataNodes, vector<Triangle>& Al
 
         AllDataTriangles.erase(AllDataTriangles.begin() + k);
 
-        for (int i = AllDataTriangles.size() - 1; i >= 0; i--) {
-            ComparisonTriangles(i, AllDataTriangles);
-        }
-    }
-    else if (triDelete.size() == 2) {
-        vector<int> ptVector;
-        // Найдём общее ребро
-        for (int i = 0; i < 3; i++) {
-            if (AllDataTriangles[triDelete[0]].nodes[0] == AllDataTriangles[triDelete[1]].nodes[i]) {
-                ptVector.push_back(AllDataTriangles[triDelete[0]].nodes[0]);
-            }
-            if (AllDataTriangles[triDelete[0]].nodes[1] == AllDataTriangles[triDelete[1]].nodes[i]) {
-                ptVector.push_back(AllDataTriangles[triDelete[0]].nodes[1]);
-            }
-            if (AllDataTriangles[triDelete[0]].nodes[2] == AllDataTriangles[triDelete[1]].nodes[i]) {
-                ptVector.push_back(AllDataTriangles[triDelete[0]].nodes[2]);
-            }
-        }
-
-        sort(triDelete.begin(), triDelete.end());
-        // Сторим новые треугольники
-        for (int i = 1; i >= 0; i--) {
-            for (int j = 0; j < 3; j++) {
-                if (AllDataTriangles[triDelete[i]].nodes[j] != ptVector[0] && AllDataTriangles[triDelete[i]].nodes[j] != ptVector[1]) {
-                    Triangle triangLine;
-                    triangLine.nodes[0] = ptVector[0];
-                    triangLine.nodes[1] = AllDataTriangles[triDelete[i]].nodes[j];
-                    triangLine.nodes[2] = m;
-                    AllDataTriangles.push_back(triangLine);
-
-                    triangLine.nodes[0] = ptVector[1];
-                    triangLine.nodes[1] = AllDataTriangles[triDelete[i]].nodes[j];
-                    triangLine.nodes[2] = m;
-                    AllDataTriangles.push_back(triangLine);
-                }
-            }
-
-            AllDataTriangles.erase(AllDataTriangles.begin() + triDelete[i]);
-        }
-        for (int i = AllDataTriangles.size() - 1; i >= 0; i--) {
-            ComparisonTriangles(i, AllDataTriangles);
-        }
-    }
-    else if (triDelete.size() == 3) {
-        vector<int> ptVector2;
-        for (int p = 1; p <= 2; p++) {
-            vector<int> ptVector;
-            // Найдём общее ребро
-            for (int i = 0; i < 3; i++) {
-                if (AllDataTriangles[triDelete[0]].nodes[0] == AllDataTriangles[triDelete[p]].nodes[i]) {
-                    ptVector.push_back(AllDataTriangles[triDelete[0]].nodes[0]);
-                }
-                if (AllDataTriangles[triDelete[0]].nodes[1] == AllDataTriangles[triDelete[p]].nodes[i]) {
-                    ptVector.push_back(AllDataTriangles[triDelete[0]].nodes[1]);
-                }
-                if (AllDataTriangles[triDelete[0]].nodes[2] == AllDataTriangles[triDelete[p]].nodes[i]) {
-                    ptVector.push_back(AllDataTriangles[triDelete[0]].nodes[2]);
-                }
-            }
-            ptVector2.insert(ptVector2.end(), ptVector.begin(), ptVector.end());
-
-            // Сторим новые треугольники
-            for (int j = 0; j < 3; j++) {
-                if (AllDataTriangles[triDelete[p]].nodes[j] != ptVector[0] && AllDataTriangles[triDelete[p]].nodes[j] != ptVector[1]) {
-                    Triangle triangLine;
-                    triangLine.nodes[0] = ptVector[0];
-                    triangLine.nodes[1] = AllDataTriangles[triDelete[p]].nodes[j];
-                    triangLine.nodes[2] = m;
-                    AllDataTriangles.push_back(triangLine);
-
-                    triangLine.nodes[0] = ptVector[1];
-                    triangLine.nodes[1] = AllDataTriangles[triDelete[p]].nodes[j];
-                    triangLine.nodes[2] = m;
-                    AllDataTriangles.push_back(triangLine);
-                }
-            }
-        }
-
-        sort(ptVector2.begin(), ptVector2.end());
-        for (int i = 0; i < 3; i++) {
-            if (ptVector2[i] == ptVector2[i + 1]){
-                ptVector2.erase(ptVector2.begin() + (i + 1)); ptVector2.erase(ptVector2.begin() + i); break;
-            }
-        }
-        Triangle triangLine;
-        triangLine.nodes[0] = ptVector2[0];
-        triangLine.nodes[1] = ptVector2[1];
-        triangLine.nodes[2] = m;
-        AllDataTriangles.push_back(triangLine);
-
-        sort(triDelete.begin(), triDelete.end());
-        for (int i = 2; i >= 0; i--) {
-            AllDataTriangles.erase(AllDataTriangles.begin() + triDelete[i]);
-        }
-
+        // Указываем новые соседние треугольники
         for (int i = AllDataTriangles.size() - 1; i >= 0; i--) {
             ComparisonTriangles(i, AllDataTriangles);
         }
     }
     else {
-        printf("Unknown case of splitting.\n"); exit(-100);
+        // По triDelete строится многоугольник (ребро считается лишним, если оно общее между двумя треугольниками)
+        vector<vector<int>> polygonRib; // вектор точек по две, которые образуют стороны многоугольника
+
+        for (int j = 1; j < triDelete.size(); j++) {
+            vector<int> ptVector;
+            // Найдём лишнее ребро для треугольника j из triDelete
+            int h = -1;
+            do {
+                h++;
+                ptVector = {};
+                if (h == j) h++;
+                for (int i = 0; i < 3; i++) {
+                    if (AllDataTriangles[triDelete[h]].nodes[0] == AllDataTriangles[triDelete[j]].nodes[i]) {
+                        ptVector.push_back(AllDataTriangles[triDelete[h]].nodes[0]); continue;
+                    }
+                    if (AllDataTriangles[triDelete[h]].nodes[1] == AllDataTriangles[triDelete[j]].nodes[i]) {
+                        ptVector.push_back(AllDataTriangles[triDelete[h]].nodes[1]); continue;
+                    }
+                    if (AllDataTriangles[triDelete[h]].nodes[2] == AllDataTriangles[triDelete[j]].nodes[i]) {
+                        ptVector.push_back(AllDataTriangles[triDelete[h]].nodes[2]); continue;
+                    }
+                }
+            } while (ptVector.size() < 2);
+
+            // Если это не сосед треугольника k, то удаляем лишнее ребро из polygonRib
+            if (h != 0) {
+                for (int i = 0; i < polygonRib.size(); i++) {
+                    if (ptVector[0] == polygonRib[i][0] && ptVector[1] == polygonRib[i][1] || ptVector[0] == polygonRib[i][1] && ptVector[1] == polygonRib[i][0]) {
+                        polygonRib.erase(polygonRib.begin() + i);
+                        break;
+                    }
+                }
+            }
+
+            // Добавляем искомые ребра в многоугольник
+            for (int i = 0; i < 3; i++) {
+                if (AllDataTriangles[triDelete[j]].nodes[i] != ptVector[0] && AllDataTriangles[triDelete[j]].nodes[i] != ptVector[1]) {
+                    vector<int> rib;
+                    rib = { AllDataTriangles[triDelete[j]].nodes[i],ptVector[0] };
+                    polygonRib.push_back(rib);
+                    rib = { AllDataTriangles[triDelete[j]].nodes[i],ptVector[1] };
+                    polygonRib.push_back(rib);
+                    break;
+                }
+            }
+        }
+
+        // Проверяем, нужны ли ещё треугольники к ребрам треуголника k
+        if (polygonRib.size() < triDelete.size() + 2) {
+            for (int i = 0; i < 3; i++) {
+                vector<int> ptVector;
+                bool flag = true;
+                for (int j = 1; j < triDelete.size() && j < 4; j++) {
+                    if (AllDataTriangles[k].triangles[i] == triDelete[j] || AllDataTriangles[k].triangles[i] == -1) {
+                        if (AllDataTriangles[k].triangles[i] == -1) {
+                            // Строим граничный треугольник
+                            vector<int> ptVec1;
+                            for (int h = 0; h < 3; h++) {
+                                vector<int> ptVec2;
+                                if (AllDataTriangles[k].triangles[h] == -1)
+                                    continue;
+                                for (int t = 0; t < 3; t++) {
+                                    if (AllDataTriangles[k].nodes[t] == AllDataTriangles[AllDataTriangles[k].triangles[h]].nodes[0]) {
+                                        ptVec2.push_back(AllDataTriangles[k].nodes[t]); continue;
+                                    }
+                                    if (AllDataTriangles[k].nodes[t] == AllDataTriangles[AllDataTriangles[k].triangles[h]].nodes[1]) {
+                                        ptVec2.push_back(AllDataTriangles[k].nodes[t]); continue;
+                                    }
+                                    if (AllDataTriangles[k].nodes[t] == AllDataTriangles[AllDataTriangles[k].triangles[h]].nodes[2]) {
+                                        ptVec2.push_back(AllDataTriangles[k].nodes[t]); continue;
+                                    }
+                                }
+                                ptVec1.insert(ptVec1.end(), ptVec2.begin(), ptVec2.end());
+                            }
+                            sort(ptVec1.begin(), ptVec1.end());
+                            for (int t = 0; t < 2; t++) {
+                                if (ptVec1[i] == ptVec1[i + 1]) {
+                                    ptVec1.erase(ptVec1.begin() + (i + 1));
+                                    ptVec1.erase(ptVec1.begin() + i);
+                                    break;
+                                }
+                            }
+                            polygonRib.push_back(ptVec1);
+                        }
+                        flag = false;
+                        break;
+                    }
+                }
+                // Если соседний треугольник не находится в списке triDelete
+                if (flag) {
+                    // Находим общее ребро и добавляем в polygonRib
+                    for (int j = 0; j < 3; j++) {
+                        if (AllDataTriangles[k].nodes[j] == AllDataTriangles[AllDataTriangles[k].triangles[i]].nodes[0]) {
+                            ptVector.push_back(AllDataTriangles[k].nodes[j]); continue;
+                        }
+                        if (AllDataTriangles[k].nodes[j] == AllDataTriangles[AllDataTriangles[k].triangles[i]].nodes[1]) {
+                            ptVector.push_back(AllDataTriangles[k].nodes[j]); continue;
+                        }
+                        if (AllDataTriangles[k].nodes[j] == AllDataTriangles[AllDataTriangles[k].triangles[i]].nodes[2]) {
+                            ptVector.push_back(AllDataTriangles[k].nodes[j]); continue;
+                        }
+                    }
+                    polygonRib.push_back(ptVector);
+                }
+            }
+        }
+
+        // Сторим новые треугольники на основе polygonRib
+        for (int i = 0; i < polygonRib.size(); i++) {
+            Triangle triangLine;
+            triangLine.nodes[0] = polygonRib[i][0];
+            triangLine.nodes[1] = polygonRib[i][1];
+            triangLine.nodes[2] = m;
+            AllDataTriangles.push_back(triangLine);
+        }
+
+        // Удаляем треугольники, которые были перестроены
+        sort(triDelete.begin(), triDelete.end());
+        for (int i = triDelete.size() - 1; i >= 0; i--) {
+            AllDataTriangles.erase(AllDataTriangles.begin() + triDelete[i]);
+        }
+
+        // Указываем новые соседние треугольники
+        for (int i = AllDataTriangles.size() - 1; i >= 0; i--) {
+            ComparisonTriangles(i, AllDataTriangles);
+        }
     }
 }
 
